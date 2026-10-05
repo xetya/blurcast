@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Latar Blur Album</title>
+<style>
+:root{--c0:#2b1d4a;--c1:#4a1f3d;--c2:#14304a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#f3f1f7;background:#0c0b10;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;padding:24px}
+body::before{content:"";position:fixed;inset:-20%;z-index:-1;opacity:.65;filter:blur(50px);background:radial-gradient(40% 40% at 20% 25%,var(--c0),transparent),radial-gradient(45% 45% at 80% 30%,var(--c1),transparent),radial-gradient(50% 50% at 50% 90%,var(--c2),transparent)}
+main{display:flex;flex-direction:column;gap:16px;min-width:0}
+h1{font-size:28px;margin:0;letter-spacing:-.02em}
+.sub{margin:4px 0 0;color:#b9b4c8}
+#stage{flex:1;min-height:340px;display:grid;place-items:center;position:relative;border-radius:20px}
+#stage.over{outline:2px dashed #fff}
+#pv{max-width:100%;max-height:72vh;border-radius:14px;box-shadow:0 24px 70px #0009}
+#ov{display:none;position:absolute;inset:0;background:#000c;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);place-items:center;border-radius:20px;z-index:5}
+#ov.on{display:grid}
+#ov>div{width:min(360px,86%);background:#1b1a21;border:1px solid #ffffff1c;border-radius:18px;padding:24px;text-align:center}
+#bar{height:8px;border-radius:4px;background:#ffffff1f;overflow:hidden;margin:14px 0 10px}
+#bar i{display:block;height:100%;width:0;background:#fff}
+aside{background:#ffffff0d;border:1px solid #ffffff1c;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:18px;align-self:start;position:sticky;top:24px}
+.l{display:flex;justify-content:space-between;font-weight:600;margin-bottom:8px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+button,input{font:inherit;color:inherit}
+.seg button,.btn{flex:1;padding:8px 10px;border-radius:10px;border:1px solid #ffffff26;background:#ffffff0a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.seg button.on{background:#fff;color:#16131c;border-color:#fff}
+.seg i{display:block;border:1.5px solid currentColor;border-radius:2px}
+.row{display:flex;gap:10px;align-items:center}
+input[type=number]{width:84px;padding:7px 9px;border-radius:10px;border:1px solid #ffffff26;background:#ffffff0a}
+input[type=range]{width:100%;accent-color:#fff}
+#th{width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid #ffffff2a;display:none}
+#go{width:100%;padding:13px;border:0;border-radius:12px;background:#fff;color:#16131c;font-weight:700;cursor:pointer}
+#go:disabled{opacity:.4;cursor:not-allowed}
+.hint{margin:0;color:#a29db3;font-size:13px}
+button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media(max-width:860px){body{grid-template-columns:1fr;padding:16px}aside{position:static}}
+</style></head>
+<body>
+<main>
+  <div><h1>Latar Blur Album</h1><p class="sub">Pilih cover album, tambahkan lagu bila perlu, lalu render jadi video MP4 latar yang bergerak mengikuti musik.</p></div>
+  <div id="stage">
+    <canvas id="pv"></canvas>
+    <div id="ov"><div><b style="font-size:20px">Merender video</b><div id="bar"><i></i></div><div id="pct">0%</div><p class="hint" style="margin-top:6px">Jangan tutup tab ini.</p></div></div>
+  </div>
+  <p class="hint" id="msg">Tarik cover ke halaman ini atau tekan Pilih gambar. Preview dirender kecil agar ringan; hasil akhir memakai kualitas yang dipilih.</p>
+  <input type="file" id="file" accept="image/*" hidden>
+</main>
+<aside>
+  <div class="row"><button class="btn" id="swap" style="flex:1">Pilih gambar</button><img id="th" alt="Cover"></div>
+  <div><span class="l">Animasi</span><div class="seg" data-k="mode"><button data-v="def">Default</button><button data-v="mus">Ikuti musik</button></div></div>
+  <div><span class="l">Sumber warna</span><div class="seg" data-k="src"><button data-v="1">Mesh ala Apple</button><button data-v="0">Palet</button></div></div>
+  <div><span class="l">Gaya</span><div class="seg" data-k="style"><button data-v="0">Kabut</button><button data-v="1">Gelombang</button><button data-v="2">Sorot</button></div></div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn" id="song">Unggah lagu</button>
+    <p class="hint" id="sn">Belum ada lagu. Format: MP3, WAV, M4A, OGG.</p>
+    <audio id="au" controls style="width:100%;display:none"></audio>
+    <div><label class="l" for="sen">Sensitivitas <span id="senv">1.0x</span></label><input type="range" id="sen" min=".3" max="2.5" step=".1" value="1"></div>
+    <div class="row"><input type="number" id="stN" min="0" value="0"><span class="hint">mulai dari detik</span><button class="btn" id="full" style="flex:none">Sesuai lagu</button></div>
+    <label class="row hint"><input type="checkbox" id="inc" checked>Sertakan audio di video</label>
+    <input type="file" id="sfile" accept="audio/*" hidden>
+  </div>
+  <div><span class="l">Rasio video</span>
+    <div class="seg" data-k="ratio">
+      <button data-v="16:9"><i style="width:18px;height:10px"></i>16:9</button>
+      <button data-v="9:16"><i style="width:10px;height:18px"></i>9:16</button>
+      <button data-v="1:1"><i style="width:14px;height:14px"></i>1:1</button>
+    </div></div>
+  <div><label class="l" for="spd">Kecepatan <span id="spdv">1.0x</span></label><input type="range" id="spd" min=".1" max="20" step=".1" value="1"></div>
+  <div><label class="l" for="sat">Saturasi <span id="satv">1.00x</span></label><input type="range" id="sat" min="0" max="2.5" step=".05" value="1"></div>
+  <div><label class="l" for="bri">Kecerahan <span id="briv">0</span></label><input type="range" id="bri" min="-50" max="50" step="1" value="0"></div>
+  <div><label class="l" for="exp">Exposure <span id="expv">0.00</span></label><input type="range" id="exp" min="-2" max="2" step=".05" value="0"></div>
+  <div><label class="l" for="con">Kontras <span id="conv">0</span></label><input type="range" id="con" min="-50" max="100" step="1" value="0"></div>
+  <div><label class="l" for="vib">Vibrance <span id="vibv">0</span></label><input type="range" id="vib" min="-100" max="100" step="1" value="0"></div>
+  <div><span class="l">Resolusi render <span class="hint" id="dm"></span></span>
+    <div class="seg" data-k="res"><button data-v="1080">1080p</button><button data-v="1440">2K</button><button data-v="2160">4K</button></div></div>
+  <div><span class="l">FPS</span>
+    <div class="seg" data-k="fps"><button data-v="24">24</button><button data-v="30">30</button><button data-v="60">60</button></div></div>
+  <div><span class="l">Durasi (detik)</span>
+    <div class="seg" data-k="dur"><button data-v="5">5</button><button data-v="10">10</button><button data-v="15">15</button><button data-v="30">30</button><button data-v="60">60</button></div>
+    <div class="row" style="margin-top:8px"><input type="number" id="durN" min="1"><span class="hint">atau ketik sendiri</span></div></div>
+  <button id="go">Render (MP4)</button>
+</aside>
+<script>
+// ---- Shader & warna: sama dengan proyek referensi ----
+const VS='attribute vec4 aVertexPosition;void main(void){gl_Position=aVertexPosition;}';
+const FS=`precision highp float;
+uniform vec2 uResolution;uniform float uTime;uniform float uSpeed;uniform float uSat;uniform float uBri;uniform vec3 uColors[5];uniform vec2 uAud;uniform float uStyle;uniform sampler2D uTex;uniform float uSrc;uniform vec3 uAdj;
+vec3 permute(vec3 x){return mod(((x*34.0)+1.0)*x,289.0);}
+float snoise(vec2 v){
+ const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+ vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);vec2 i1;
+ i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);
+ vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod(i,289.0);
+ vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));
+ vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
+ m=m*m;m=m*m;
+ vec3 x=2.0*fract(p*C.www)-1.0;vec3 h=abs(x)-0.5;vec3 ox=floor(x+0.5);vec3 a0=x-ox;
+ m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+ vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+ return 130.0*dot(m,g);}
+vec3 dk(vec3 c){float gm=step(max(c.r,c.b),c.g);c.r*=1.0-0.3*gm;c.b*=1.0+0.1*gm;float m=max(max(c.r,c.g),c.b);c*=0.45/max(m,0.2);return mix(vec3(dot(c,vec3(0.299,0.587,0.114))),c,1.6);}
+void main(){
+ vec2 uv=gl_FragCoord.xy/uResolution.xy;
+ float time=uTime*0.15*uSpeed;
+ float n1=snoise(uv*0.5+vec2(time*0.1,time*0.2));
+ float n2=snoise(uv*1.2-vec2(time*0.2,time*0.1));
+ vec2 distUV=uv+vec2(n1,n2)*(0.2+uAud.x*0.25);
+ float mask1=snoise(distUV*0.5+vec2(time*0.1,0.0))*0.5+0.5;
+ float mask2=snoise(distUV*0.6+vec2(0.0,time*0.15)+10.0)*0.5+0.5;
+ float mask3=snoise(distUV*0.4-vec2(time*0.1,time*0.1)+20.0)*0.5+0.5;
+ float mask4=snoise(distUV*0.7+vec2(time*0.15,-time*0.1)+30.0)*0.5+0.5;
+ vec3 c=uColors[0];
+ float k=0.6+uAud.y*0.4;c=mix(c,uColors[1],mask1*k);c=mix(c,uColors[2],mask2*k);
+ c=mix(c,uColors[3],mask3*0.5);c=mix(c,uColors[4],mask4*0.4);
+ if(uSrc>0.5){
+  float t=time*1.2,kk=6.5-uAud.x*2.0;
+  vec2 q0=uv+(distUV-uv)*0.6;
+  vec2 d0=q0-vec2(0.12+0.1*sin(t*0.8),0.55+0.15*cos(t*0.6));
+  vec2 d1=q0-vec2(0.25+0.1*cos(t*0.7),0.4+0.12*sin(t*0.9+1.0));
+  vec2 d2=q0-vec2(0.95+0.05*cos(t*0.7),0.35+0.15*sin(t*0.9+1.0));
+  vec2 d3=q0-vec2(0.3+0.15*sin(t*0.5+2.0),0.22+0.1*cos(t*0.8));
+  vec2 d5=q0-vec2(0.9+0.05*sin(t*0.6),0.68+0.1*cos(t*0.7));
+  vec2 d4=q0-vec2(0.3+0.2*cos(t*0.6),0.93);
+  vec2 d6=q0-vec2(0.85+0.1*sin(t*0.5),0.05);
+  float w0=exp(-dot(d0,d0)*kk),w1=exp(-dot(d1,d1)*kk),w2=exp(-dot(d2,d2)*kk),w3=exp(-dot(d3,d3)*kk),w5=exp(-dot(d5,d5)*kk),w4=exp(-dot(d4,d4)*kk)+exp(-dot(d6,d6)*kk);
+  c=(dk(uColors[2])*w0+dk(uColors[1])*w1+dk(uColors[0])*w2+dk(uColors[3])*(0.89*w3+w5)+dk(uColors[4])*0.375*w4)/(w0+w1+w2+w3+w5+w4*1.5+0.14);
+ }
+ vec2 q=uv-0.5;q.x*=uResolution.x/uResolution.y;float r=length(q);
+ if(uStyle>0.5&&uStyle<1.5){float w=sin(r*18.0-time*8.0)*0.5+0.5;c+=uColors[1]*w*(0.06+uAud.x*0.3)*(1.0-r);}
+ else if(uStyle>1.5){c+=uColors[2]*exp(-r*r*(4.0-uAud.x*2.5))*(0.15+uAud.x*0.5);}
+ c*=exp2(uAdj.x);c=(c-0.5)*(1.0+uAdj.y)+0.5;c=clamp(c,0.0,1.0);
+ float lum=dot(c,vec3(0.299,0.587,0.114));c=mix(vec3(lum),c,uSat);
+ c=mix(vec3(dot(c,vec3(0.299,0.587,0.114))),c,1.0+uAdj.z*(1.0-(max(max(c.r,c.g),c.b)-min(min(c.r,c.g),c.b))));
+ c=uBri<0.0?c*(1.0+uBri):mix(c,vec3(1.0),uBri);
+ float grain=fract(sin(dot(uv.xy,vec2(12.9898,78.233)))*43758.5453);
+ 
+ gl_FragColor=vec4(c,1.0);}`;
+// Dipakai di halaman (preview) dan di Web Worker (ekspor)
+function setupGL(gl,VS,FS){
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(o));return o},pg=gl.createProgram();
+  gl.attachShader(pg,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pg);gl.useProgram(pg);
+  gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,1,1,1,-1,-1,1,-1]),gl.STATIC_DRAW);
+  const al=gl.getAttribLocation(pg,'aVertexPosition'),u=n=>gl.getUniformLocation(pg,n);
+  gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+  const uR=u('uResolution'),uT=u('uTime'),uS=u('uSpeed'),uC=u('uColors'),uSa=u('uSat'),uBr=u('uBri'),uA=u('uAud'),uSt=u('uStyle'),uSr=u('uSrc'),uAj=u('uAdj');
+  const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));
+  [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT],[gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT]].forEach(([a,b])=>gl.texParameteri(gl.TEXTURE_2D,a,b));gl.uniform1i(u('uTex'),0);
+  const f=(t,speed,colors,sat,bri,a0=0,a1=0,st=0,sr=0,aj=[0,0,0])=>{
+    gl.viewport(0,0,gl.canvas.width,gl.canvas.height);gl.uniform2f(uR,gl.canvas.width,gl.canvas.height);
+    gl.uniform1f(uT,t);gl.uniform1f(uS,speed);gl.uniform1f(uSa,sat);gl.uniform1f(uBr,bri);gl.uniform2f(uA,a0,a1);gl.uniform1f(uSt,st);gl.uniform1f(uSr,sr);gl.uniform3f(uAj,aj[0],aj[1],aj[2]);gl.uniform3fv(uC,new Float32Array(colors.flat()));gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  };
+  f.tex=s=>{gl.bindTexture(gl.TEXTURE_2D,tx);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,s)};return f;
+}
+// Palet ala Apple Music: k-means berbobot luas area, lalu diurutkan dari warna paling dominan dan hidup
+function pickColors(d){
+  const P=[];for(let i=0;i<d.length;i+=4)P.push([d[i]/255,d[i+1]/255,d[i+2]/255]);
+  const N=P.length,K=6,D=(a,b)=>(a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2;
+  const mean=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/N);
+  let C=[P.reduce((b,p)=>D(p,mean)<D(b,mean)?p:b)];
+  while(C.length<K){let bd=-1,best=P[0];for(const p of P){let m=9;for(const c of C)m=Math.min(m,D(p,c));if(m>bd){bd=m;best=p}}C.push(best)}
+  let cnt=[];
+  for(let it=0;it<10;it++){
+    const sum=C.map(()=>[0,0,0]);cnt=C.map(()=>0);
+    for(const p of P){let bi=0,bd=9;C.forEach((c,i)=>{const x=D(p,c);if(x<bd){bd=x;bi=i}});cnt[bi]++;for(let k=0;k<3;k++)sum[bi][k]+=p[k]}
+    C=C.map((c,i)=>cnt[i]?sum[i].map(v=>v/cnt[i]):c);
+  }
+  const sc=C.map((c,i)=>{const mx=Math.max(...c),mn=Math.min(...c),sat=mx?(mx-mn)/mx:0,l=(mx+mn)/2;
+    const lf=l<.1?.2:l<.18?.55:l>.93?.35:1;
+    return{c,s:(cnt[i]/N)**.6*(.3+sat*1.4)*lf}}).sort((a,b)=>b.s-a.s);
+  const top=sc.slice(0,5).map(x=>x.c),base=top.shift();top.sort((x,y)=>D(y,base)-D(x,base));
+  return[base,...top].map(c=>{const l=(Math.max(...c)+Math.min(...c))/2;return c.map(v=>Math.min(1,Math.max(0,l+(v-l)*1.15)))});
+}
+function extractColors(img){
+  const cv=document.createElement('canvas');cv.width=cv.height=56;const x=cv.getContext('2d');x.drawImage(img,0,0,56,56);
+  return pickColors(x.getImageData(0,0,56,56).data);
+}
+
+// ---- Analisis musik: bass/mid/high + beat, dihitung sekali per lagu (60 data/detik) ----
+function analyze(ch,sr){
+  const R=60,hop=Math.floor(sr/R),n=Math.floor(ch.length/hop),F=new Float32Array(n*4),raw=[new Float32Array(n),new Float32Array(n),new Float32Array(n)];
+  const a1=1-Math.exp(-2*Math.PI*150/sr),a2=1-Math.exp(-2*Math.PI*2500/sr);let l1=0,l2=0;
+  for(let i=0;i<n;i++){let b=0,m=0,h=0;for(let j=i*hop,e=j+hop;j<e;j++){const x=ch[j];l1+=a1*(x-l1);l2+=a2*(x-l2);const mi=l2-l1,hi=x-l2;b+=l1*l1;m+=mi*mi;h+=hi*hi}
+    raw[0][i]=Math.sqrt(b/hop);raw[1][i]=Math.sqrt(m/hop);raw[2][i]=Math.sqrt(h/hop)}
+  const norm=a=>{const p=Float32Array.from(a).sort()[Math.floor(n*.95)]||1e-6;for(let i=0;i<n;i++)a[i]=Math.min(1.3,a[i]/p)};
+  raw.forEach(norm);
+  const on=new Float32Array(n);
+  for(let i=1;i<n;i++){let av=0,c=0;for(let j=Math.max(0,i-20);j<i;j++){av+=raw[0][j];c++}on[i]=Math.max(0,raw[0][i]-av/c*1.1)}
+  norm(on);
+  const v=[0,0,0],bp=0;let p=0;
+  for(let i=0;i<n;i++){for(let k=0;k<3;k++){const x=raw[k][i];v[k]+=(x-v[k])*(x>v[k]?.6:.12);F[i*4+k]=v[k]}p=Math.max(on[i],p*.88);F[i*4+3]=p}
+  return F;
+}
+function aud(F,R,t,k){const x=Math.max(0,t*R),i=Math.floor(x),f=x-i;if(!F||i>=F.length/4-1)return[0,0,0,0];const o=[];for(let q=0;q<4;q++)o.push(Math.min(1.5,(F[i*4+q]*(1-f)+F[i*4+q+4]*f)*k));return o}
+
+// ---- Web Worker ekspor MP4 (WebCodecs + mp4-muxer), dibuat dari Blob agar tetap satu file ----
+const WORKER=`import {Muxer,ArrayBufferTarget} from 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/+esm';
+const VS=${JSON.stringify(VS)},FS=${JSON.stringify(FS)};
+${setupGL.toString()}
+${aud.toString()}
+self.onmessage=async e=>{
+ const {W,H,fps,dur,speed,colors,sat,bri,F,k,audio}=e.data;
+ try{
+  const cv=new OffscreenCanvas(W,H),gl=cv.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
+  if(!gl)throw Error('WebGL tidak tersedia di worker');
+  const draw=setupGL(gl,VS,FS),br=Math.min(40e6,Math.max(10e6,Math.round(W*H*fps*.2)));
+  if(e.data.tex)draw.tex(e.data.tex);
+  let cfg;
+  for(const codec of ['avc1.640034','avc1.4d0034','avc1.640033','avc1.4d0033','avc1.4d0028']){
+   const c={codec,width:W,height:H,bitrate:br,framerate:fps};
+   try{if((await VideoEncoder.isConfigSupported(c)).supported){cfg=c;break}}catch(_){}
+  }
+  if(!cfg)throw Error('Encoder H.264 tidak mendukung ukuran/fps ini. Coba resolusi atau FPS lebih rendah.');
+  let acfg;
+  if(audio&&self.AudioEncoder){const c={codec:'mp4a.40.2',sampleRate:audio.sr,numberOfChannels:audio.ch.length,bitrate:192000};try{if((await AudioEncoder.isConfigSupported(c)).supported)acfg=c}catch(_){}}
+  const mux=new Muxer({target:new ArrayBufferTarget(),video:{codec:'avc',width:W,height:H,frameRate:fps},audio:acfg?{codec:'aac',numberOfChannels:acfg.numberOfChannels,sampleRate:acfg.sampleRate}:undefined,fastStart:'in-memory'});
+  let err;const enc=new VideoEncoder({output:(c,m)=>mux.addVideoChunk(c,m),error:x=>err=x});enc.configure(cfg);
+  const n=Math.ceil(dur*fps),dt=1/fps;let ph=0;
+  for(let i=0;i<n;i++){
+   if(err)throw err;
+   while(enc.encodeQueueSize>40)await new Promise(r=>setTimeout(r,0));
+   const a=F?aud(F,60,e.data.start+i*dt,k):[0,0,0,0];ph+=dt*(1+(a[0]*.5+a[1]*.3+a[2]*.2)*3);
+   draw(ph,speed,colors,sat*(1+a[2]*.5),bri+a[3]*.12,a[0],a[1],e.data.style,e.data.src,e.data.adj);
+   const f=new VideoFrame(cv,{timestamp:Math.round(i*dt*1e6),duration:Math.round(dt*1e6)});
+   enc.encode(f,{keyFrame:i%(fps*2)===0});f.close();
+   if(i%10===0)postMessage({type:'PROGRESS',percent:Math.round(i/n*95)});
+  }
+  await enc.flush();if(err)throw err;
+  if(acfg){
+   const ae=new AudioEncoder({output:(c,m)=>mux.addAudioChunk(c,m),error:x=>err=x});ae.configure(acfg);
+   const nc=audio.ch.length,len=audio.ch[0].length,B=2048;
+   for(let p=0;p<len;p+=B){
+    const l=Math.min(B,len-p),d=new Float32Array(l*nc);
+    for(let c=0;c<nc;c++)d.set(audio.ch[c].subarray(p,p+l),c*l);
+    const ad=new AudioData({format:'f32-planar',sampleRate:audio.sr,numberOfFrames:l,numberOfChannels:nc,timestamp:Math.round(p/audio.sr*1e6),data:d});
+    ae.encode(ad);ad.close();
+    while(ae.encodeQueueSize>40)await new Promise(r=>setTimeout(r,0));
+   }
+   await ae.flush();if(err)throw err;
+  }
+  mux.finalize();
+  const b=mux.target.buffer;postMessage({type:'DONE',buffer:b,audio:!!acfg},[b]);
+ }catch(x){postMessage({type:'ERROR',error:x.message})}
+};`;
+
+// ---- UI ----
+const $=id=>document.getElementById(id),S={ratio:'16:9',dur:5,res:1080,fps:60,speed:1,sat:1,bri:0,mode:'def',exp:0,con:0,vib:0,style:0,src:1,start:0,sens:1};
+const RL={1080:'1080p',1440:'2K',2160:'4K'};
+let colors=[[.35,.2,.55],[.75,.3,.45],[.2,.45,.75],[.9,.6,.35],[.3,.25,.4]],name='cover',busy=false;
+const dims=s=>{const[a,b]=S.ratio.split(':').map(Number);let W=s,H=s;if(a>b)W=Math.round(s*a/b/2)*2;else if(a<b)H=Math.round(s*b/a/2)*2;return[W,H]};
+const pv=$('pv'),gl=pv.getContext('webgl',{antialias:false}),draw=setupGL(gl,VS,FS);
+function sync(){
+  document.querySelectorAll('.seg').forEach(g=>[...g.children].forEach(b=>b.classList.toggle('on',String(S[g.dataset.k])===b.dataset.v)));
+  $('durN').value=S.dur;$('stN').value=S.start;$('spdv').textContent=S.speed.toFixed(1)+'x';
+  const[W,H]=dims(S.res),[pw,ph]=dims(360);$('dm').textContent=`${W}×${H}`;
+  if(pv.width!==pw||pv.height!==ph){pv.width=pw;pv.height=ph}
+  colors.slice(0,3).forEach((c,i)=>document.documentElement.style.setProperty('--c'+i,`rgb(${c.map(v=>v*255|0)})`));
+}
+document.querySelectorAll('.seg').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||busy)return;S[g.dataset.k]=isNaN(b.dataset.v)?b.dataset.v:+b.dataset.v;sync()}));
+$('durN').onchange=e=>{S.dur=Math.max(1,Math.round(+e.target.value)||5);sync()};
+$('spd').oninput=e=>{S.speed=+e.target.value;sync()};
+$('sat').oninput=e=>{S.sat=+e.target.value;$('satv').textContent=S.sat.toFixed(2)+'x'};
+$('exp').oninput=e=>{S.exp=+e.target.value;$('expv').textContent=S.exp.toFixed(2)};
+$('con').oninput=e=>{S.con=+e.target.value/100;$('conv').textContent=e.target.value};
+$('vib').oninput=e=>{S.vib=+e.target.value/100;$('vibv').textContent=e.target.value};
+$('bri').oninput=e=>{S.bri=+e.target.value/100;$('briv').textContent=e.target.value};
+const au=$('au');let AU=null,ph=0,TEX=null;const SRC=()=>S.src?1:0;
+function makeTex(img){
+  const mk=n=>{const c=document.createElement('canvas');c.width=c.height=n;const x=c.getContext('2d');x.imageSmoothingQuality='high';return[c,x]};
+  const[a,ax]=mk(5),[b,bx]=mk(64);ax.drawImage(img,0,0,5,5);bx.filter='blur(12px)';bx.drawImage(a,-16,-16,96,96);return b}
+$('sen').oninput=e=>{S.sens=+e.target.value;$('senv').textContent=S.sens.toFixed(1)+'x'};
+$('stN').onchange=e=>{S.start=Math.max(0,+e.target.value||0);if(AU)au.currentTime=Math.min(S.start,AU.dur);sync()};
+$('full').onclick=()=>{if(AU){S.dur=Math.max(1,Math.floor(AU.dur-S.start));sync()}};
+$('song').onclick=()=>$('sfile').click();$('sfile').onchange=e=>loadAudio(e.target.files[0]);
+async function loadAudio(f){
+  if(!f)return;$('sn').textContent='Menganalisis lagu...';
+  try{
+    const ac=new(window.AudioContext||window.webkitAudioContext)(),ab=await ac.decodeAudioData(await f.arrayBuffer());ac.close();
+    const ch=[...Array(Math.min(2,ab.numberOfChannels))].map((_,i)=>ab.getChannelData(i)),mono=new Float32Array(ab.length);
+    for(let i=0;i<ab.length;i++)mono[i]=ch.length>1?(ch[0][i]+ch[1][i])/2:ch[0][i];
+    AU={ch,sr:ab.sampleRate,dur:ab.duration,F:analyze(mono,ab.sampleRate)};
+    au.src=URL.createObjectURL(f);au.style.display='block';S.mode='mus';S.start=0;S.dur=Math.max(1,Math.floor(ab.duration));
+    $('sn').textContent=`${f.name} (${Math.floor(ab.duration/60)}:${String(Math.floor(ab.duration%60)).padStart(2,'0')}). Tekan play untuk melihat preview.`;sync();
+  }catch(_){$('sn').textContent='Lagu tidak bisa dibaca. Coba format MP3 atau WAV.'}
+}
+const t0=performance.now();let lt=t0;
+(function tick(now){const dt=Math.min(.1,(now-lt)/1000);lt=now;
+  if(!busy){const a=S.mode==='mus'&&AU&&!au.paused?aud(AU.F,60,au.currentTime,S.sens):[0,0,0,0];
+    ph+=dt*(1+(a[0]*.5+a[1]*.3+a[2]*.2)*3);draw(ph,S.speed,colors,S.sat*(1+a[2]*.5),S.bri+a[3]*.12,a[0],a[1],S.style,SRC(),[S.exp,S.con,S.vib])}
+  requestAnimationFrame(tick)})(t0);
+
+function load(f){if(f&&f.type.startsWith('audio/'))return loadAudio(f);
+  if(!f||!f.type.startsWith('image/'))return;
+  name=f.name.replace(/\.[^/.]+$/,'')||'cover';
+  const img=new Image();img.onload=()=>{colors=extractColors(img);TEX=makeTex(img);draw.tex(TEX);$('th').src=img.src;$('th').style.display='block';sync()};
+  img.src=URL.createObjectURL(f);
+}
+$('swap').onclick=()=>$('file').click();$('file').onchange=e=>load(e.target.files[0]);
+['dragover','dragenter'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();$('stage').classList.add('over')}));
+['dragleave','drop'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();$('stage').classList.remove('over')}));
+document.addEventListener('drop',e=>load(e.dataTransfer.files[0]));
+document.addEventListener('paste',e=>{const f=[...e.clipboardData.files][0];if(f)load(f)});
+
+$('go').onclick=async()=>{
+  const mus=S.mode==='mus';if(mus&&!AU)return alert('Unggah lagu dulu untuk mode Ikuti musik.');
+  let audio=null;if(AU&&$('inc').checked){const i0=Math.floor(S.start*AU.sr),i1=Math.min(AU.ch[0].length,i0+Math.ceil(S.dur*AU.sr));if(i1>i0)audio={sr:AU.sr,ch:AU.ch.map(c=>c.slice(i0,i1))}}
+  if(!window.VideoEncoder||!window.OffscreenCanvas)return alert('Browser ini belum mendukung WebCodecs/OffscreenCanvas. Gunakan Chrome atau Edge 94+.');
+  const[W,H]=dims(S.res),fps=S.fps,label=RL[S.res],url=URL.createObjectURL(new Blob([WORKER],{type:'text/javascript'}));
+  const w=new Worker(url,{type:'module'});
+  const end=()=>{busy=false;$('ov').classList.remove('on');w.terminate();URL.revokeObjectURL(url)};
+  const prog=p=>{$('bar').firstChild.style.width=p+'%';$('pct').textContent=p+'%'};
+  busy=true;prog(0);$('ov').classList.add('on');
+  w.onmessage=e=>{
+    const{type,percent,buffer,error}=e.data;
+    if(type==='PROGRESS')prog(percent);
+    else if(type==='DONE'){
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buffer],{type:'video/mp4'}));
+      a.download=`${name}_${S.ratio.replace(':','x')}_${label}_${fps}fps.mp4`;a.click();
+      $('msg').textContent=`Selesai: ${W}×${H}, ${fps} fps, ${(buffer.byteLength/1e6).toFixed(1)} MB${audio?(e.data.audio?', dengan audio':', tanpa audio (encoder AAC tidak tersedia)'):''}.`;end();
+    }else if(type==='ERROR'){alert('Render gagal: '+error);end()}
+  };
+  w.onerror=()=>{alert('Worker gagal dimuat. Pastikan terhubung ke internet (mp4-muxer diambil dari CDN).');end()};
+  const bmp=null;
+  w.postMessage({W,H,fps,dur:S.dur,speed:S.speed,colors,sat:S.sat,bri:S.bri,F:mus?AU.F:null,k:S.sens,start:S.start,style:S.style,audio,tex:bmp,src:SRC(),adj:[S.exp,S.con,S.vib]},[...(audio?audio.ch.map(c=>c.buffer):[]),...(bmp?[bmp]:[])]);
+};
+sync();
+</script>
+</body></html>
